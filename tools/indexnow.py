@@ -44,11 +44,22 @@ def submit(urls):
         ENDPOINT, data=data,
         headers={"Content-Type": "application/json; charset=utf-8"},
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        print(f"IndexNow → HTTP {resp.status} ({len(urls)} URLs)")
-        body = resp.read().decode("utf-8", "replace").strip()
-        if body:
-            print(body)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            print(f"IndexNow → HTTP {resp.status} ({len(urls)} URLs 수락됨)")
+            body = resp.read().decode("utf-8", "replace").strip()
+            if body:
+                print(body)
+    except urllib.error.HTTPError as e:
+        print(f"IndexNow → HTTP {e.code}")
+        if e.code == 403:
+            print(f"  키 검증 실패: {base}/{INDEXNOW_KEY}.txt 가 배포되어 공개 접근 "
+                  "가능한지 먼저 확인하세요(사이트 배포 후 재실행).")
+        else:
+            print("  " + e.read().decode("utf-8", "replace").strip()[:300])
+        sys.exit(1)
+    except urllib.error.URLError as e:
+        sys.exit(f"네트워크 오류: {e.reason}")
 
 
 def main():
