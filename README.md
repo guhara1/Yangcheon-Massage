@@ -41,8 +41,35 @@ python3 build.py
 - 상단/하위 메뉴와 푸터에 키워드·지역명·역명 대량 나열 없음
 - 모든 페이지 본문은 페이지별 고유 작성 (지역명만 바꾼 복붙 없음)
 
-## 배포 전 해야 할 일
+## 배포 도메인
 
-1. `content/site.py`의 `BASE_URL`을 실제 도메인으로 변경
-2. `python3 build.py` 재실행 (canonical·sitemap·robots.txt에 반영됨)
-3. Google Search Console·네이버 서치어드바이저에 `sitemap.xml` 제출
+- 운영 도메인: `https://yangcheon-massage.pages.dev` (`content/site.py`의 `BASE_URL`)
+- 도메인이 바뀌면 `BASE_URL`만 고치고 `python3 build.py`를 다시 돌리면 canonical·OG·sitemap·feed·robots에 일괄 반영됩니다.
+
+## 색인 / SEO 산출물 (빌드 시 자동 생성)
+
+| 파일 | 용도 |
+|---|---|
+| `sitemap.xml` | 색인 대상 34개 URL (lastmod·changefreq·priority 포함) |
+| `feed.xml` | RSS 2.0 피드 — 네이버 서치어드바이저 RSS 수집·구독용 |
+| `robots.txt` | 구글·빙·네이버(Yeti/NaverBot)·다음(Daumoa) 전면 허용 + 사이트맵 2종 명시 |
+| `<INDEXNOW_KEY>.txt` | IndexNow 소유 확인 키 파일 (루트 게시) |
+
+## 빠른 색인 운영 절차
+
+```bash
+python3 build.py                  # 1) sitemap.xml / feed.xml 갱신
+python3 tools/indexnow.py --all   # 2) 빙·네이버 등 IndexNow 참여 엔진에 즉시 통보
+```
+
+- **IndexNow** (`tools/indexnow.py`): 빙·네이버·얀덱스 등에 변경 URL을 즉시 통보. 키 파일이 먼저 배포돼 있어야 합니다(빌드가 자동 생성). 특정 URL만 보내려면 `python3 tools/indexnow.py <url> [...]`.
+- **구글 Indexing API** (`tools/google_indexing.py`): 구글은 IndexNow 미참여라 별도 경로. 서비스 계정 JSON + Search Console 소유자 등록 후 `GOOGLE_APPLICATION_CREDENTIALS`를 지정해 실행. 일반 페이지 색인은 보장되지 않으므로 **Search Console 사이트맵 제출이 구글의 기본 경로**입니다.
+- **sitemap ping** (`tools/ping_sitemap.py`): 구글·빙의 ping 엔드포인트는 2023년 종료되어 효과가 없습니다. 호환용으로만 남겨 두었고, IndexNow로 대체하세요.
+
+## 최초 1회 등록
+
+1. **네이버 서치어드바이저**: 사이트 등록 → 소유확인(메인 페이지의 `naver-site-verification` 메타 태그) → `sitemap.xml`과 `feed.xml`(RSS) 제출.
+2. **구글 Search Console**: 속성 등록 → `sitemap.xml` 제출.
+3. **빙 웹마스터도구**: 사이트 등록(구글 Search Console에서 가져오기 가능) → IndexNow 키 자동 인식.
+
+> 서비스 계정 키(`*.json`)는 절대 커밋하지 마세요. `.gitignore`에 자격증명 패턴이 포함되어 있습니다.

@@ -1,10 +1,14 @@
 # 사이트 공통 설정
-# 배포 도메인 확정 후 BASE_URL 을 실제 도메인으로 변경하세요.
-BASE_URL = "https://www.gandago.example.com"
+BASE_URL = "https://yangcheon-massage.pages.dev"
 
 BRAND = "간다GO"
+SITE_DESC = "양천구 전지역 방문 출장마사지·홈타이 예약 안내. 목동·신월동·신정동과 주요 지하철역 인근, 테마별 관리 정보를 제공합니다."
 PHONE = "0508-202-4719"
 PHONE_DISPLAY = "0508-202-4719"
+
+# IndexNow 인증 키 — 루트에 {INDEXNOW_KEY}.txt 파일로도 게시된다(빌드 시 자동 생성).
+# 빙·네이버·얀덱스 등 IndexNow 참여 검색엔진에 즉시 색인 통보할 때 사용한다.
+INDEXNOW_KEY = "e144bd0c2d0741b78f79108f93b98bc4"
 
 # 상단 메뉴 — 하위 메뉴에는 키워드를 반복하지 않고 지역명·역명만 표시한다.
 NAV = [

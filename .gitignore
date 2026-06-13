@@ -1,2 +1,8 @@
 __pycache__/
 *.pyc
+
+# 자격증명 / 서비스 계정 키
+*.json
+!package.json
+credentials*
+service-account*
