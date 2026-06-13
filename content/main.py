@@ -186,7 +186,7 @@ PAGE = {
     "desc": "양천 출장마사지·홈타이 안내. 목동·신월동·신정동, 오목교역·목동역 등 양천구 주요 지역과 역 인근 예약 정보를 확인해보세요.",
     "h1": "양천 출장마사지·홈타이 예약 안내",
     "body": _BODY,
-    "extra_head": _JSONLD,
+    "extra_head": '<meta name="naver-site-verification" content="79a0881380aafdc13c603dc32de892b0da564c56">\n' + _JSONLD,
     "breadcrumb": [],
     "hero": _HERO,
 }
