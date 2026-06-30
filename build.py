@@ -9,6 +9,7 @@ content/ 패키지의 페이지 정의를 읽어 정적 HTML을 생성한다.
   - 지역+역+테마 조합 경로는 생성 자체가 불가능한 구조
 """
 import html
+import json
 import os
 import re
 import shutil
@@ -20,6 +21,7 @@ from datetime import datetime, timezone
 
 from content import PAGES
 from content.site import (BASE_URL, BRAND, NAV, PHONE, PHONE_DISPLAY)
+from content.reviews_data import ALL_REVIEWS, aggregate
 
 try:
     from content.site import SITE_DESC
@@ -115,6 +117,296 @@ def render_toc(items) -> str:
     )
 
 
+# ── 구조화 데이터(JSON-LD) ──────────────────────────────────────────────
+_BASE = BASE_URL.rstrip("/")
+_BUSINESS_ID = _BASE + "/#business"
+
+AREAS = {
+    "mok-dong": "목동", "sinwol-dong": "신월동", "sinjeong-dong": "신정동",
+}
+STATIONS = {
+    "yangcheon-gu-office-station": "양천구청역",
+    "sinjeongnegeori-station": "신정네거리역",
+    "omokgyo-station": "오목교역",
+    "mokdong-station": "목동역",
+    "sinjeong-station": "신정역",
+    "sinmokdong-station": "신목동역",
+}
+THEMES = {
+    "swedish": "스웨디시", "lomilomi": "로미로미", "thai-massage": "타이마사지",
+    "chinese": "중국마사지", "aroma": "아로마테라피", "homecare": "홈케어",
+    "hotel-style": "호텔식마사지", "foot": "발마사지", "sports": "스포츠·경락",
+    "skincare": "스킨케어", "waxing": "왁싱", "couple": "커플 관리",
+    "24hours": "24시간", "overnight": "수면 가능",
+}
+
+_FAQ_RE = re.compile(
+    r'<div class="faq-item">\s*<h3>(.*?)</h3>\s*<p>(.*?)</p>', re.S
+)
+
+
+def _plain(text: str) -> str:
+    """태그를 제거해 JSON-LD용 순수 텍스트로 만든다."""
+    text = re.sub(r"<[^>]+>", "", text)
+    text = html.unescape(text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _business_node(with_rating=False, with_reviews=False) -> dict:
+    node = {
+        "@type": "HealthAndBeautyBusiness",
+        "@id": _BUSINESS_ID,
+        "name": BRAND,
+        "telephone": PHONE,
+        "url": _BASE + "/",
+        "image": _BASE + "/assets/og-image.png",
+        "description": "양천구 전지역 방문 출장마사지·홈타이 예약 안내",
+        "areaServed": {"@type": "AdministrativeArea", "name": "서울특별시 양천구"},
+        "address": {
+            "@type": "PostalAddress",
+            "addressRegion": "서울특별시",
+            "addressLocality": "양천구",
+            "addressCountry": "KR",
+        },
+        "openingHoursSpecification": {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday",
+                          "Friday", "Saturday", "Sunday"],
+            "opens": "00:00", "closes": "23:59",
+        },
+        "priceRange": "₩90,000 - ₩180,000",
+    }
+    if with_rating:
+        agg = aggregate()
+        node["aggregateRating"] = {
+            "@type": "AggregateRating",
+            "ratingValue": agg["value"],
+            "reviewCount": agg["count"],
+            "bestRating": agg["best"],
+            "worstRating": agg["worst"],
+        }
+    if with_reviews:
+        node["review"] = [
+            {
+                "@type": "Review",
+                "author": {"@type": "Person", "name": f'{r["loc"]} {r["author"]}님'},
+                "datePublished": r["date"],
+                "reviewRating": {
+                    "@type": "Rating", "ratingValue": r["rating"],
+                    "bestRating": 5, "worstRating": 1,
+                },
+                "reviewBody": r["text"],
+            }
+            for r in ALL_REVIEWS
+        ]
+    return node
+
+
+def _breadcrumb_node(page: dict, canonical: str) -> dict:
+    crumbs = page.get("breadcrumb") or []
+    items = [{"@type": "ListItem", "position": 1, "name": "홈", "item": _BASE + "/"}]
+    pos = 2
+    for label, href in crumbs:
+        item = _BASE + href if href else canonical
+        items.append({"@type": "ListItem", "position": pos, "name": label, "item": item})
+        pos += 1
+    return {"@type": "BreadcrumbList", "itemListElement": items}
+
+
+def _service_node(name: str, canonical: str) -> dict:
+    return {
+        "@type": "Service",
+        "name": f"양천 {name} 출장마사지·홈타이",
+        "serviceType": name,
+        "provider": {"@id": _BUSINESS_ID},
+        "areaServed": {"@type": "AdministrativeArea", "name": "서울특별시 양천구"},
+        "url": canonical,
+        "offers": {
+            "@type": "AggregateOffer",
+            "priceCurrency": "KRW",
+            "lowPrice": "90000",
+            "highPrice": "180000",
+        },
+    }
+
+
+def build_jsonld(page: dict, canonical: str) -> str:
+    """페이지 유형에 맞는 JSON-LD를 @graph 하나로 생성한다."""
+    path = page["path"]
+    is_home = path == ""
+    is_reviews = path == "reviews/"
+
+    nodes = [_business_node(with_rating=is_reviews, with_reviews=is_reviews)]
+
+    if is_home:
+        nodes.append({
+            "@type": "WebSite", "@id": _BASE + "/#website",
+            "name": BRAND, "url": _BASE + "/", "inLanguage": "ko",
+            "publisher": {"@id": _BUSINESS_ID},
+        })
+
+    if page.get("breadcrumb"):
+        nodes.append(_breadcrumb_node(page, canonical))
+
+    faqs = [
+        {"@type": "Question", "name": _plain(q),
+         "acceptedAnswer": {"@type": "Answer", "text": _plain(a)}}
+        for q, a in _FAQ_RE.findall(page["body"])
+    ]
+    if faqs:
+        nodes.append({"@type": "FAQPage", "mainEntity": faqs})
+
+    # 테마 상세 페이지와 출장마사지 안내 페이지에 Service 노드
+    if path.startswith("yangcheon/themes/") and path != "yangcheon/themes/":
+        slug = path.split("/")[2]
+        nodes.append(_service_node(THEMES.get(slug, "방문 관리"), canonical))
+    elif path == "massage/":
+        nodes.append(_service_node("출장마사지·홈타이", canonical))
+
+    graph = {"@context": "https://schema.org", "@graph": nodes}
+    return ('<script type="application/ld+json">\n'
+            + json.dumps(graph, ensure_ascii=False, indent=2)
+            + "\n</script>\n")
+
+
+# ── 내부 링크 강화(롱테일 관련 안내) ────────────────────────────────────
+# 지역 ↔ 인근 역 ↔ 추천 테마 매핑 (각 페이지 본문의 문맥과 일치)
+_AREA_LINKS = {
+    "mok-dong": (["omokgyo-station", "mokdong-station", "sinmokdong-station"],
+                 ["aroma", "couple"], ["sinjeong-dong"]),
+    "sinwol-dong": (["sinjeong-station"], ["homecare", "24hours"], ["sinjeong-dong"]),
+    "sinjeong-dong": (["yangcheon-gu-office-station", "sinjeongnegeori-station",
+                       "sinjeong-station"], ["sports"], ["mok-dong"]),
+}
+# 역 → 소속 지역, 추천 테마
+_STATION_LINKS = {
+    "yangcheon-gu-office-station": ("sinjeong-dong", ["sports", "homecare"]),
+    "sinjeongnegeori-station": ("sinjeong-dong", ["foot", "chinese"]),
+    "omokgyo-station": ("mok-dong", ["swedish", "sports", "24hours"]),
+    "mokdong-station": ("mok-dong", ["thai-massage", "aroma"]),
+    "sinjeong-station": ("sinjeong-dong", ["lomilomi", "homecare"]),
+    "sinmokdong-station": ("mok-dong", ["foot", "swedish", "couple"]),
+}
+# 테마 → 연관 테마
+_THEME_LINKS = {
+    "swedish": ["aroma", "sports"], "lomilomi": ["swedish", "chinese"],
+    "thai-massage": ["swedish", "chinese"], "chinese": ["sports", "lomilomi"],
+    "aroma": ["lomilomi", "overnight"], "homecare": ["swedish", "thai-massage"],
+    "hotel-style": ["couple", "homecare"], "foot": ["swedish", "sports"],
+    "sports": ["chinese", "foot"], "skincare": ["swedish", "waxing"],
+    "waxing": ["skincare", "couple"], "couple": ["hotel-style", "homecare"],
+    "24hours": ["overnight", "homecare"], "overnight": ["aroma", "24hours"],
+}
+
+
+def _area_href(slug):
+    return (f"/yangcheon/{slug}/", f"{AREAS[slug]} 출장마사지·홈타이")
+
+
+def _station_href(slug):
+    return (f"/yangcheon/stations/{slug}/", f"{STATIONS[slug]} 인근 방문 마사지")
+
+
+def _theme_href(slug):
+    return (f"/yangcheon/themes/{slug}/", f"양천 {THEMES[slug]} 마사지 안내")
+
+
+def related_links(path: str):
+    """페이지 경로에 맞는 롱테일 관련 링크 목록 (href, label)."""
+    links = []
+    if path == "":
+        links = [
+            _area_href("mok-dong"), _station_href("omokgyo-station"),
+            _theme_href("swedish"), _theme_href("24hours"),
+            ("/reviews/", "양천 출장마사지 이용 후기"),
+            ("/courses/", "코스·요금 안내"),
+        ]
+    elif path in (f"yangcheon/{s}/" for s in AREAS):
+        slug = path.split("/")[1]
+        stations, themes, others = _AREA_LINKS[slug]
+        links = [_station_href(s) for s in stations]
+        links += [_theme_href(t) for t in themes]
+        links += [_area_href(o) for o in others]
+        links.append(("/reviews/", "지역별 이용 후기"))
+    elif path.startswith("yangcheon/stations/") and path != "yangcheon/stations/":
+        slug = path.split("/")[2]
+        area, themes = _STATION_LINKS[slug]
+        links = [_area_href(area)]
+        links += [_theme_href(t) for t in themes]
+        links += [("/yangcheon/stations/", "양천 지하철역별 안내"),
+                  ("/reservation/", "예약 방법·시간 안내")]
+    elif path.startswith("yangcheon/themes/") and path != "yangcheon/themes/":
+        slug = path.split("/")[2]
+        links = [_theme_href(t) for t in _THEME_LINKS.get(slug, [])]
+        links += [("/yangcheon/", "양천구 지역별 안내"),
+                  ("/yangcheon/stations/", "양천 지하철역별 안내"),
+                  ("/courses/", "코스·요금 안내")]
+    elif path == "yangcheon/":
+        links = [_area_href("mok-dong"), _area_href("sinwol-dong"),
+                 _area_href("sinjeong-dong"),
+                 ("/yangcheon/stations/", "양천 지하철역별 안내"),
+                 ("/yangcheon/themes/", "양천 테마별 관리 안내")]
+    elif path == "yangcheon/stations/":
+        links = [_station_href("omokgyo-station"), _station_href("mokdong-station"),
+                 ("/yangcheon/", "양천구 지역별 안내"),
+                 ("/yangcheon/themes/", "양천 테마별 관리 안내"),
+                 ("/reviews/", "역세권 이용 후기")]
+    elif path == "yangcheon/themes/":
+        links = [_theme_href("swedish"), _theme_href("aroma"),
+                 _theme_href("sports"),
+                 ("/yangcheon/", "양천구 지역별 안내"),
+                 ("/courses/", "코스·요금 안내")]
+    elif path == "massage/":
+        links = [("/yangcheon/", "양천구 지역별 안내"),
+                 ("/yangcheon/stations/", "양천 지하철역별 안내"),
+                 ("/yangcheon/themes/", "양천 테마별 관리 안내"),
+                 ("/courses/", "코스·요금 안내"),
+                 ("/reservation/", "예약 방법 안내")]
+    elif path == "courses/":
+        links = [("/yangcheon/themes/", "양천 테마별 관리 안내"),
+                 ("/reservation/", "예약 방법 안내"),
+                 ("/massage/", "양천 출장마사지 안내"),
+                 ("/reviews/", "이용 후기")]
+    elif path == "reservation/":
+        links = [("/guide/", "이용 가이드"),
+                 ("/courses/", "코스·요금 안내"),
+                 ("/massage/", "양천 출장마사지 안내"),
+                 ("/yangcheon/", "양천구 지역별 안내")]
+    elif path == "guide/":
+        links = [("/reservation/", "예약 방법 안내"),
+                 ("/massage/", "양천 출장마사지 안내"),
+                 ("/reviews/", "이용 후기"),
+                 ("/support/", "고객센터")]
+    elif path == "reviews/":
+        links = [("/yangcheon/", "양천구 지역별 안내"),
+                 ("/yangcheon/stations/", "양천 지하철역별 안내"),
+                 ("/guide/", "이용 가이드"),
+                 ("/reservation/", "예약 방법 안내")]
+    elif path == "support/":
+        links = [("/reservation/", "예약 방법 안내"),
+                 ("/guide/", "이용 가이드"),
+                 ("/about/", "운영자 소개")]
+    elif path == "about/":
+        links = [("/massage/", "양천 출장마사지 안내"),
+                 ("/support/", "고객센터"),
+                 ("/reviews/", "이용 후기")]
+    return links
+
+
+def render_related(path: str) -> str:
+    links = related_links(path)
+    if not links:
+        return ""
+    cards = "".join(
+        f'<li><a href="{href}">{label}</a></li>' for href, label in links
+    )
+    return (
+        '<section class="related-links" aria-label="관련 안내">'
+        "<h2>함께 보면 좋은 안내</h2>"
+        f'<ul class="card-grid">{cards}</ul></section>'
+    )
+
+
 def render_page(page: dict) -> str:
     path = page["path"]
     title = page["title"]
@@ -146,6 +438,16 @@ def render_page(page: dict) -> str:
     toc_html = render_toc(toc_items)
     layout_cls = "page-layout has-toc" if toc_html else "page-layout"
 
+    # 롱테일 관련 안내 섹션을 CTA 직전에 삽입 (없으면 본문 끝에)
+    related_html = render_related(path)
+    if related_html:
+        if '<section class="cta"' in body:
+            body = body.replace('<section class="cta"', related_html + '<section class="cta"', 1)
+        else:
+            body += related_html
+
+    jsonld = build_jsonld(page, canonical)
+
     return f"""<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -174,7 +476,7 @@ def render_page(page: dict) -> str:
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/style.css">
-{extra_head}</head>
+{extra_head}{jsonld}</head>
 <body>
 <header class="site-header">
   <div class="header-accent" aria-hidden="true"></div>

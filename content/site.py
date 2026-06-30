@@ -1,5 +1,5 @@
 # 사이트 공통 설정
-BASE_URL = "https://yangcheon-massage.pages.dev"
+BASE_URL = "https://yangcheon-massage.netlify.app"
 
 BRAND = "간다GO"
 SITE_DESC = "양천구 전지역 방문 출장마사지·홈타이 예약 안내. 목동·신월동·신정동과 주요 지하철역 인근, 테마별 관리 정보를 제공합니다."

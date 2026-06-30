@@ -5,8 +5,8 @@
   publish = "."
   command = ""
 
-# 운영(canonical) 도메인은 pages.dev 이며, netlify.app 은 동일 콘텐츠를 서빙하는 미러다.
-# 각 페이지의 canonical 태그가 pages.dev 를 가리키므로 중복 색인 문제는 없다.
+# 운영(canonical) 도메인은 yangcheon-massage.netlify.app 이다.
+# canonical·og·sitemap·feed·robots 의 도메인은 content/site.py 의 BASE_URL 로 일괄 관리된다.
 
 # 정적 자산 캐시
 [[headers]]

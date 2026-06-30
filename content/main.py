@@ -1,7 +1,6 @@
 # 메인 페이지 — 양천구 허브. 상세 내용은 지역·역·테마 페이지로 연결한다.
-import json
-
-from .site import BASE_URL, BRAND, PHONE, PHONE_DISPLAY
+# 구조화 데이터(JSON-LD)는 build.py 에서 전 페이지 공통으로 생성한다.
+from .site import BRAND, PHONE, PHONE_DISPLAY
 from .pricing import PRICING
 
 # FAQ는 본문과 JSON-LD에서 동일하게 사용한다.
@@ -27,45 +26,6 @@ _FAQS = [
         "관리 유형은 테마별 안내 페이지에서, 시간은 60·90·120분 코스 중에서 고르시면 됩니다. 선택이 어려우시면 전화로 그날의 컨디션을 말씀해 주세요. 상담에서 함께 정해 드립니다.",
     ),
 ]
-
-_FAQ_JSONLD = json.dumps(
-    {
-        "@context": "https://schema.org",
-        "@type": "FAQPage",
-        "mainEntity": [
-            {
-                "@type": "Question",
-                "name": q,
-                "acceptedAnswer": {"@type": "Answer", "text": a},
-            }
-            for q, a in _FAQS
-        ],
-    },
-    ensure_ascii=False,
-    indent=2,
-)
-
-_JSONLD = f"""<script type="application/ld+json">
-{{
-  "@context": "https://schema.org",
-  "@type": "HealthAndBeautyBusiness",
-  "name": "{BRAND}",
-  "telephone": "{PHONE}",
-  "url": "{BASE_URL}/",
-  "image": "{BASE_URL}/assets/og-image.png",
-  "description": "양천구 전지역 방문 출장마사지·홈타이 예약 안내",
-  "areaServed": {{
-    "@type": "AdministrativeArea",
-    "name": "서울특별시 양천구"
-  }},
-  "openingHours": "Mo-Su 00:00-24:00",
-  "priceRange": "₩90,000 - ₩180,000"
-}}
-</script>
-<script type="application/ld+json">
-{_FAQ_JSONLD}
-</script>
-"""
 
 _HERO = f"""<section class="hero">
   <div class="hero-inner">
@@ -186,7 +146,7 @@ PAGE = {
     "desc": "양천 출장마사지·홈타이 안내. 목동·신월동·신정동, 오목교역·목동역 등 양천구 주요 지역과 역 인근 예약 정보를 확인해보세요.",
     "h1": "양천 출장마사지·홈타이 예약 안내",
     "body": _BODY,
-    "extra_head": '<meta name="naver-site-verification" content="79a0881380aafdc13c603dc32de892b0da564c56">\n' + _JSONLD,
+    "extra_head": '<meta name="naver-site-verification" content="437374652f381742d6eeaae436fedf382bb44562">\n',
     "breadcrumb": [],
     "hero": _HERO,
 }

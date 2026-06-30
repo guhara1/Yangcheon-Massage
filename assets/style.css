@@ -667,4 +667,36 @@ th { background: var(--panel-2); color: var(--gold-soft); font-family: var(--ser
   h2 { font-size: 1.22rem; }
   .page-content section { padding: 26px 22px 22px; border-radius: 14px; }
   .cta { padding: 36px 20px; }
+  .rating-summary { flex-wrap: wrap; }
 }
+
+/* 평점 요약 */
+.rating-summary {
+  display: flex; align-items: center; gap: 18px;
+  background: var(--panel-2); border: 1px solid var(--line-gold);
+  border-radius: 14px; padding: 18px 24px; margin: 0 0 30px;
+}
+.rating-score {
+  font-family: var(--serif); font-size: 2.6rem; font-weight: 900;
+  color: var(--gold-soft); line-height: 1;
+}
+.rating-detail { display: flex; flex-direction: column; gap: 6px; }
+.rating-count { font-size: 0.85rem; color: var(--text-dim); }
+
+/* 별점 */
+.review-stars { letter-spacing: 0.08em; font-size: 1rem; }
+.review-stars .stars-on { color: var(--gold); }
+.review-stars .stars-off { color: var(--line); }
+
+/* 후기 목록 */
+.review-list { list-style: none; margin: 18px 0 8px; padding: 0;
+  display: grid; gap: 14px; }
+.review-item {
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 18px 20px; margin: 0;
+}
+.review-item .review-text { margin: 10px 0 8px; color: var(--text); line-height: 1.85; }
+.review-item .review-meta { margin: 0; font-size: 0.85rem; color: var(--text-dim); }
+
+/* 관련 안내 */
+.related-links .card-grid { margin-bottom: 0; }

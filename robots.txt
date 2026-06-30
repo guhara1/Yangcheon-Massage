@@ -19,5 +19,5 @@ Allow: /
 User-agent: NaverBot
 Allow: /
 
-Sitemap: https://yangcheon-massage.pages.dev/sitemap.xml
-Sitemap: https://yangcheon-massage.pages.dev/feed.xml
+Sitemap: https://yangcheon-massage.netlify.app/sitemap.xml
+Sitemap: https://yangcheon-massage.netlify.app/feed.xml
